@@ -24,3 +24,29 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Make all form inputs, textareas, and selects have dark, bold, visible text */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="datetime-local"],
+textarea,
+select {
+  color: #374151 !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  -webkit-text-fill-color: #374151 !important;
+  opacity: 1 !important;
+}
+
+/* Ensure placeholder text is also visible but lighter */
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+}
