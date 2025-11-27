@@ -1,0 +1,280 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../app/generated/prisma"
+  binaryTargets = ["native", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----- Enums -----
+
+enum UserRole {
+  DEVELOPER
+  PROFESSIONAL
+  ADMIN
+}
+
+enum RIBAStage {
+  STAGE_0 // Strategic Definition
+  STAGE_1 // Preparation & Brief
+  STAGE_2 // Concept Design
+  STAGE_3 // Spatial Coordination
+  STAGE_4 // Technical Design
+  STAGE_5 // Manufacturing & Construction
+  STAGE_6 // Handover & Close Out
+  STAGE_7 // In Use
+}
+
+enum BidStatus {
+  DRAFT
+  SUBMITTED
+  WITHDRAWN
+  ACCEPTED
+  REJECTED
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+// ----- Core Models -----
+
+model User {
+  id              String            @id @default(cuid())
+  email           String            @unique
+  hashedPassword  String
+  fullName        String
+  role            UserRole
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  developerOrg    DeveloperOrg?     @relation(fields: [developerOrgId], references: [id])
+  developerOrgId  String?
+  professional    ProfessionalProfile?
+  messages        Message[]
+  notifications   Notification[]
+  uploadedDocuments Document[]
+}
+
+model DeveloperOrg {
+  id           String   @id @default(cuid())
+  name         String
+  website      String?
+  bio          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Members
+  users        User[]
+
+  // Projects
+  projects     Project[]
+}
+
+model ProfessionalProfile {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           String   @unique
+  companyName      String?
+  profession       String?  // e.g., "Architect", "Planning Consultant", etc.
+  bio              String?
+  availabilityNote String?
+
+  // Company Details for Business Acquisition
+  website          String?
+  companyRegNo     String?
+  establishedYear  Int?
+  numEmployees     String?  // e.g., "1-5", "6-20", "21-50", "51+"
+  turnoverRange    String?  // e.g., "£100k-£500k", "£500k-£1m", "£1m-£5m"
+  insuranceLevel   String?  // Professional Indemnity Insurance level
+  servicesOffered  String?  // Comma-separated list or JSON
+  accreditations   String?  // e.g., "ISO 9001, Constructionline, CHAS"
+  awards           String?  // Notable awards and recognition
+
+  // Collections
+  qualifications   Qualification[]
+  expertise        ExpertiseTagOnProfile[]
+  portfolio        PortfolioItem[]
+
+  // Stats
+  ratingAverage    Float    @default(0)
+  ratingCount      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Bids and assignments
+  bids             Bid[]
+  assignments      ProjectProfessional[]
+  tasksAssigned    Task[]
+}
+
+model Qualification {
+  id           String   @id @default(cuid())
+  profile      ProfessionalProfile @relation(fields: [profileId], references: [id])
+  profileId    String
+  title        String
+  authority    String? // e.g., RIBA, RTPI, RICS
+  credentialId String?
+  issuedAt     DateTime?
+  expiresAt    DateTime?
+}
+
+model ExpertiseTag {
+  id     String  @id @default(cuid())
+  name   String  @unique // e.g., "Feasibility", "Daylight & Sunlight", "Fire Safety"
+  profiles ExpertiseTagOnProfile[]
+}
+
+model ExpertiseTagOnProfile {
+  profile   ProfessionalProfile @relation(fields: [profileId], references: [id])
+  profileId String
+  tag       ExpertiseTag        @relation(fields: [tagId], references: [id])
+  tagId     String
+
+  @@id([profileId, tagId])
+}
+
+model PortfolioItem {
+  id           String   @id @default(cuid())
+  profile      ProfessionalProfile @relation(fields: [profileId], references: [id])
+  profileId    String
+  title        String
+  description  String?
+  location     String?
+  units        Int?
+  startDate    DateTime?
+  endDate      DateTime?
+  coverImageUrl String?
+  media        PortfolioMedia[]
+}
+
+// Media for portfolio items
+model PortfolioMedia {
+  id          String         @id @default(cuid())
+  item        PortfolioItem  @relation(fields: [itemId], references: [id])
+  itemId      String
+  url         String
+  caption     String?
+  createdAt   DateTime @default(now())
+}
+
+// ----- Projects, Tasks, Bids -----
+
+model Project {
+  id               String      @id @default(cuid())
+  developer        DeveloperOrg @relation(fields: [developerId], references: [id])
+  developerId      String
+  title            String
+  description      String?
+  siteAddress      String?
+  localAuthority   String? // helpful for planning consultants
+  unitsPlanned     Int?
+  budgetEstimate   Int?
+  currentStage     RIBAStage  @default(STAGE_0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Kanban columns are derived from TaskStatus; tasks belong to stages optionally
+  tasks            Task[]
+  documents        Document[]
+  bids             Bid[]
+  professionals    ProjectProfessional[]
+  messages         Message[]
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  project       Project   @relation(fields: [projectId], references: [id])
+  projectId     String
+  title         String
+  description   String?
+  status        TaskStatus @default(BACKLOG)
+  ribaStage     RIBAStage?
+  orderIndex    Int        @default(0) // for drag-and-drop ordering within a column
+  assignee      ProfessionalProfile? @relation(fields: [assigneeId], references: [id])
+  assigneeId    String?
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Bid {
+  id              String     @id @default(cuid())
+  project         Project    @relation(fields: [projectId], references: [id])
+  projectId       String
+  professional    ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  professionalId  String
+  status          BidStatus  @default(DRAFT)
+  proposalText    String?
+  amountMinor     Int? // amount in minor currency units (e.g., pence)
+  attachments     BidAttachment[]
+  submittedAt     DateTime?
+  decidedAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([projectId, professionalId])
+}
+
+// Attachments for bids
+model BidAttachment {
+  id        String   @id @default(cuid())
+  bid       Bid      @relation(fields: [bidId], references: [id])
+  bidId     String
+  filename  String
+  s3Key     String
+  uploadedAt DateTime @default(now())
+}
+
+model ProjectProfessional {
+  id               String   @id @default(cuid())
+  project          Project  @relation(fields: [projectId], references: [id])
+  projectId        String
+  professional     ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  professionalId   String
+  roleDescription  String? // e.g., Lead Architect, Planning Consultant
+  appointedAt      DateTime?
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  project      Project  @relation(fields: [projectId], references: [id])
+  projectId    String
+  name         String
+  version      Int      @default(1)
+  s3Key        String   // placeholder; later configure S3 provider
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  createdAt    DateTime @default(now())
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  recipient    User     @relation(fields: [recipientId], references: [id])
+  recipientId  String
+  title        String
+  body         String?
+  readAt       DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  project      Project  @relation(fields: [projectId], references: [id])
+  projectId    String
+  author       User     @relation(fields: [authorId], references: [id])
+  authorId     String
+  content      String
+  createdAt    DateTime @default(now())
+}
