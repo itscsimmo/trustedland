@@ -7,9 +7,10 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const project = await prisma.project.findUnique({
-      where: { id: params.projectId },
+      where: { id: projectId },
       include: {
         developer: {
           select: {

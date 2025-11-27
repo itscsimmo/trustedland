@@ -8,9 +8,10 @@ const prisma = new PrismaClient();
 // DELETE - Remove a nominated professional (PRIVATE - only project owner/admin)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { projectId: string; assignmentId: string } }
+  { params }: { params: Promise<{ projectId: string; assignmentId: string }> }
 ) {
   try {
+    const { projectId, assignmentId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -22,7 +23,7 @@ export async function DELETE(
 
     // Check if assignment exists and get project info
     const assignment = await prisma.projectProfessional.findUnique({
-      where: { id: params.assignmentId },
+      where: { id: assignmentId },
       include: {
         project: {
           include: {
@@ -46,7 +47,7 @@ export async function DELETE(
     }
 
     // Verify assignment belongs to the specified project
-    if (assignment.projectId !== params.projectId) {
+    if (assignment.projectId !== projectId) {
       return NextResponse.json(
         { error: "Assignment does not belong to this project" },
         { status: 400 }
@@ -66,7 +67,7 @@ export async function DELETE(
 
     // Delete the assignment
     await prisma.projectProfessional.delete({
-      where: { id: params.assignmentId },
+      where: { id: assignmentId },
     });
 
     return NextResponse.json(

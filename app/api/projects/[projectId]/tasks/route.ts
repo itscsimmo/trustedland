@@ -29,9 +29,10 @@ const taskSchema = z.object({
 // GET /api/projects/[projectId]/tasks
 export async function GET(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -39,7 +40,7 @@ export async function GET(
     }
 
     const tasks = await prisma.task.findMany({
-      where: { projectId: params.projectId },
+      where: { projectId: projectId },
       include: {
         assignee: {
           include: {
@@ -69,9 +70,10 @@ export async function GET(
 // POST /api/projects/[projectId]/tasks
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -84,7 +86,7 @@ export async function POST(
     // Get the highest orderIndex for the status
     const lastTask = await prisma.task.findFirst({
       where: {
-        projectId: params.projectId,
+        projectId: projectId,
         status: (data.status as TaskStatus) || TaskStatus.BACKLOG,
       },
       orderBy: { orderIndex: "desc" },
@@ -94,7 +96,7 @@ export async function POST(
 
     const task = await prisma.task.create({
       data: {
-        projectId: params.projectId,
+        projectId: projectId,
         title: data.title,
         description: data.description || null,
         status: (data.status as TaskStatus) || TaskStatus.BACKLOG,
@@ -138,9 +140,10 @@ export async function POST(
 // PATCH /api/projects/[projectId]/tasks - Update task status/order
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {

@@ -17,9 +17,10 @@ const applicationSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -51,7 +52,7 @@ export async function POST(
 
     // Check if project exists
     const project = await prisma.project.findUnique({
-      where: { id: params.projectId },
+      where: { id: projectId },
     });
 
     if (!project) {
@@ -65,7 +66,7 @@ export async function POST(
     const existingBid = await prisma.bid.findUnique({
       where: {
         projectId_professionalId: {
-          projectId: params.projectId,
+          projectId: projectId,
           professionalId: user.professional.id,
         },
       },
@@ -113,7 +114,7 @@ ${data.portfolioIds?.length ?
 
     const application = await prisma.bid.create({
       data: {
-        projectId: params.projectId,
+        projectId: projectId,
         professionalId: user.professional.id,
         status: BidStatus.SUBMITTED,
         proposalText: fullProposal,

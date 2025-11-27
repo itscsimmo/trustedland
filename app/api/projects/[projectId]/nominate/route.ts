@@ -14,9 +14,10 @@ const nominateSchema = z.object({
 // POST - Nominate a professional for a project (PRIVATE - only project owner/admin)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -28,7 +29,7 @@ export async function POST(
 
     // Check if project exists and user has permission
     const project = await prisma.project.findUnique({
-      where: { id: params.projectId },
+      where: { id: projectId },
       include: {
         developer: {
           include: {
@@ -73,7 +74,7 @@ export async function POST(
     // Check if already nominated
     const existing = await prisma.projectProfessional.findFirst({
       where: {
-        projectId: params.projectId,
+        projectId: projectId,
         professionalId: data.professionalId,
       },
     });
@@ -88,7 +89,7 @@ export async function POST(
     // Create nomination
     const nomination = await prisma.projectProfessional.create({
       data: {
-        projectId: params.projectId,
+        projectId: projectId,
         professionalId: data.professionalId,
         roleDescription: data.roleDescription,
         appointedAt: new Date(),
